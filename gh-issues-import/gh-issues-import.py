@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import urllib2
 import json
 from StringIO import StringIO
@@ -8,6 +10,7 @@ username = "user@example.com"
 password = "naked_password"
 src_repo = "octocat/Hello-World"
 dst_repo = "helloworld-inc/Hello-World"
+
 #==== end of configurations ===
 
 server = "api.github.com"
@@ -15,28 +18,57 @@ src_url = "https://%s/repos/%s" % (server, src_repo)
 dst_url = "https://%s/repos/%s" % (server, dst_repo)
 
 def get_milestones(url):
-	response = urllib2.urlopen("%s/milestones?state=open" % url)
+	req = urllib2.Request("%s/milestones?state=open" % url)
+	req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
+	req.add_header("Content-Type", "application/json")
+	req.add_header("Accept", "application/json")
+	response = urllib2.urlopen(req)
+
 	result = response.read()
 	milestones = json.load(StringIO(result))
 	return milestones
 
 def get_labels(url):
-	response = urllib2.urlopen("%s/labels" % url)
+	req = urllib2.Request("%s/labels" % url)
+	req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
+	req.add_header("Content-Type", "application/json")
+	req.add_header("Accept", "application/json")
+	response = urllib2.urlopen(req)
+
 	result = response.read()
 	labels = json.load(StringIO(result))
 	return labels
 
 def get_issues(url):
-	response = urllib2.urlopen("%s/issues" % url)
-	result = response.read()
-	issues = json.load(StringIO(result))
+	page = 1
+	issues = []
+	while True:
+		req = urllib2.Request("%s/issues?per_page=100&page=%s" % (url, page))
+		req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
+		req.add_header("Content-Type", "application/json")
+		req.add_header("Accept", "application/json")
+		response = urllib2.urlopen(req)
+
+		result = response.read()
+		page_issues = json.load(StringIO(result))
+		if len(page_issues) > 0:
+			issues.extend(page_issues)
+			page += 1
+		else:
+			break;
+
 	return issues
 
 def get_comments_on_issue(issue):
 	if issue.has_key("comments") \
 	  and issue["comments"] is not None \
 	  and issue["comments"] != 0:
-		response = urllib2.urlopen("%s/comments" % issue["url"])
+		req = urllib2.Request("%s/comments" % issue["url"])
+		req.add_header("Authorization", "Basic " + base64.urlsafe_b64encode("%s:%s" % (username, password)))
+		req.add_header("Content-Type", "application/json")
+		req.add_header("Accept", "application/json")
+		response = urllib2.urlopen(req)
+
 		result = response.read()
 		comments = json.load(StringIO(result))
 		return comments
@@ -56,7 +88,7 @@ def import_milestones(milestones):
 		req.add_header("Content-Type", "application/json")
 		req.add_header("Accept", "application/json")
 		res = urllib2.urlopen(req)
-		
+
 		data = res.read()
 		res_milestone = json.load(StringIO(data))
 		print "Successfully created milestone %s" % res_milestone["title"]
@@ -140,7 +172,7 @@ def main():
 
 	#process issues
 	issues = get_issues(src_url)
-	import_issues(issues, milestones, labels)
+	#import_issues(issues, milestones, labels)
 
 
 if __name__ == '__main__':
